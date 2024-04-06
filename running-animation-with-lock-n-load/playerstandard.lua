@@ -7,17 +7,42 @@ local start_running_state = Idstring("fps/start_running")
 local running_state = Idstring("fps/running")
 local stop_running_state = Idstring("fps/stop_running")
 
-local function can_play_start_running(self)
+local function try_play_start_running(self)
+	local is_playing = false
+
 	if self._running
 		and not self._end_running_expire_t
 		and not self._shooting
 		and not self._ready_to_shoot_expire_t
 		and not self._anim_state
 	then
-		return true
+		local state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
+
+		if (state ~= start_running_state) and (state ~= running_state) then
+			self._ext_camera:play_redirect(self:get_animation("start_running"))
+		end
+
+		is_playing = true
 	end
 
-	return false
+	return is_playing
+end
+
+local function try_play_stop_running(self, t)
+	local is_playing = false
+	local state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
+
+	if (state == start_running_state) or (state == running_state) then
+		local speed_multiplier = self._equipped_unit:base():exit_run_speed_multiplier()
+		self._ext_camera:play_redirect(self:get_animation("stop_running"), speed_multiplier)
+		self._stop_running_anim_expire_t = t + (0.4 / speed_multiplier)
+		is_playing = true
+	elseif self._end_running_expire_t and (state == stop_running_state) then
+		self._stop_running_anim_expire_t = self._end_running_expire_t
+		is_playing = true
+	end
+
+	return is_playing
 end
 
 local _check_action_primary_attack = PlayerStandard._check_action_primary_attack
@@ -27,16 +52,7 @@ function PlayerStandard:_check_action_primary_attack(t, input, params)
 			-- Exit the ready-to-shoot state.
 			-- The player may have released the attack button before pressing it again.
 			self._ready_to_shoot_expire_t = nil
-
-			local state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
-
-			if (state == start_running_state) or (state == running_state) then
-				local speed_multiplier = self._equipped_unit:base():exit_run_speed_multiplier()
-				self._ext_camera:play_redirect(self:get_animation("stop_running"), speed_multiplier)
-				self._stop_running_anim_expire_t = t + (0.4 / speed_multiplier)
-			elseif self._end_running_expire_t and (state == stop_running_state) then
-				self._stop_running_anim_expire_t = self._end_running_expire_t
-			end
+			try_play_stop_running(self, t)
 		end
 
 		if input.btn_primary_attack_release then
@@ -44,15 +60,56 @@ function PlayerStandard:_check_action_primary_attack(t, input, params)
 			self._ready_to_shoot_expire_t = t + 3
 		end
 
-		if self._stop_running_anim_expire_t then
-			if self._stop_running_anim_expire_t > t then
-				return false
-			end
+		if self._stop_running_anim_expire_t and self._stop_running_anim_expire_t > t then
+			return false
 		end
 	end
 	
 	return _check_action_primary_attack(self, t, input, params)
 end
+
+local _check_action_deploy_underbarrel = PlayerStandard._check_action_deploy_underbarrel
+function PlayerStandard:_check_action_deploy_underbarrel(t, input)
+	if self._equipped_unit:base():run_and_shoot_allowed() then
+		if input.btn_deploy_bipod and self._running then
+			local is_playing = try_play_stop_running(self, t)
+
+			if is_playing then
+				self._toggle_underbarrel_wanted = true
+			end
+		end
+
+		if self._stop_running_anim_expire_t and self._stop_running_anim_expire_t > t then
+			return false
+		end
+	end
+
+	local new_action = _check_action_deploy_underbarrel(self, t, input)
+
+	if new_action and self._equipped_unit:base():run_and_shoot_allowed() then
+		self._anim_state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
+	end
+
+	return new_action
+end
+
+Hooks:PostHook(PlayerStandard, "_start_action_reload", "RunningAnimationWithLockNLoad", function (self, t)
+	if self:_is_reloading() and self._equipped_unit:base():run_and_shoot_allowed() then
+		self._anim_state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
+	end
+end)
+
+Hooks:PostHook(PlayerStandard, "_start_action_running", "RunningAnimationWithLockNLoad", function (self, t)
+	if self._equipped_unit:base():run_and_shoot_allowed() then
+		try_play_start_running(self)
+	end
+end)
+
+Hooks:PostHook(PlayerStandard, "_end_action_running", "RunningAnimationWithLockNLoad", function (self, t)
+	if self._equipped_unit:base():run_and_shoot_allowed() then
+		try_play_stop_running(self, t)
+	end
+end)
 
 Hooks:PreHook(PlayerStandard, "update", "RunningAnimationWithLockNLoad", function (self, t, dt)
 	if self._stop_running_anim_expire_t and self._stop_running_anim_expire_t <= t then
@@ -61,46 +118,11 @@ Hooks:PreHook(PlayerStandard, "update", "RunningAnimationWithLockNLoad", functio
 
 	if self._ready_to_shoot_expire_t and self._ready_to_shoot_expire_t <= t then
 		self._ready_to_shoot_expire_t = nil
-
-		if can_play_start_running(self) then
-			self._ext_camera:play_redirect(self:get_animation("start_running"))
-		end
+		try_play_start_running(self)
 	end
 
 	if self._anim_state and not self._ext_camera:anim_state_machine():is_playing(self._anim_state) then
 		self._anim_state = nil
-	
-		if can_play_start_running(self) then
-			self._ext_camera:play_redirect(self:get_animation("start_running"))
-		end
-	end
-end)
-
-Hooks:PostHook(PlayerStandard, "_start_action_reload", "RunningAnimationWithLockNLoad", function (self, t)
-	if self:_is_reloading() then
-		self._anim_state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
-	end
-end)
-
-Hooks:PostHook(PlayerStandard, "_check_action_deploy_underbarrel", "RunningAnimationWithLockNLoad", function (self, t, input)
-	local new_action = Hooks:GetReturn()
-
-	if new_action then
-		self._anim_state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
-	end
-end)
-
-Hooks:PostHook(PlayerStandard, "_start_action_running", "RunningAnimationWithLockNLoad", function (self, t)
-	if can_play_start_running(self) then
-		self._ext_camera:play_redirect(self:get_animation("start_running"))
-	end
-end)
-
-Hooks:PostHook(PlayerStandard, "_end_action_running", "RunningAnimationWithLockNLoad", function (self, t)
-	local state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
-
-	if (state == start_running_state) or (state == running_state) then
-		local speed_multiplier = self._equipped_unit:base():exit_run_speed_multiplier()
-		self._ext_camera:play_redirect(self:get_animation("stop_running"), speed_multiplier)
+		try_play_start_running(self)
 	end
 end)
