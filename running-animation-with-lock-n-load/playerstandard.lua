@@ -87,6 +87,7 @@ function PlayerStandard:_check_action_deploy_underbarrel(t, input)
 	local new_action = _check_action_deploy_underbarrel(self, t, input)
 
 	if new_action and self._equipped_unit:base():run_and_shoot_allowed() then
+		-- Assume that the underbarrel toggle animation is playing.
 		self._anim_state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
 	end
 
@@ -95,6 +96,7 @@ end
 
 Hooks:PostHook(PlayerStandard, "_start_action_reload", "RunningAnimationWithLockNLoad", function (self, t)
 	if self:_is_reloading() and self._equipped_unit:base():run_and_shoot_allowed() then
+		-- Assume that the reload animation is playing.
 		self._anim_state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
 	end
 end)
