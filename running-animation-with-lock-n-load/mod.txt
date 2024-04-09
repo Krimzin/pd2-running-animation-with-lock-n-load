@@ -1,6 +1,6 @@
 {
 	"name":"Running Animation With Lock n' Load",
-	"description":"The title says it all.",
+	"description":"Enables the running animation to play while having the Lock n' Load skill equipped.",
 	"author":"Krimzin",
 	"version":"1.0.0",
 	"hooks":[
