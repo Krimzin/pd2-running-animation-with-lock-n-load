@@ -41,8 +41,8 @@ local function try_play_stop_running(self, t)
 	return is_playing
 end
 
-local _check_action_primary_attack = PlayerStandard._check_action_primary_attack
-function PlayerStandard:_check_action_primary_attack(t, input, params)
+local _check_action_primary_attack = Hooks:GetFunction(PlayerStandard, "_check_action_primary_attack")
+Hooks:OverrideFunction(PlayerStandard, "_check_action_primary_attack", function (self, t, input, params)
 	if self._equipped_unit:base():run_and_shoot_allowed() then
 		if input.btn_primary_attack_press then
 			self._block_running_anim = true
@@ -61,10 +61,10 @@ function PlayerStandard:_check_action_primary_attack(t, input, params)
 	end
 	
 	return _check_action_primary_attack(self, t, input, params)
-end
+end)
 
-local _check_action_deploy_underbarrel = PlayerStandard._check_action_deploy_underbarrel
-function PlayerStandard:_check_action_deploy_underbarrel(t, input)
+local _check_action_deploy_underbarrel = Hooks:GetFunction(PlayerStandard, "_check_action_deploy_underbarrel")
+Hooks:OverrideFunction(PlayerStandard, "_check_action_deploy_underbarrel", function (self, t, input)
 	local run_and_shoot_allowed = self._equipped_unit:base():run_and_shoot_allowed()
 
 	if run_and_shoot_allowed then
@@ -101,7 +101,7 @@ function PlayerStandard:_check_action_deploy_underbarrel(t, input)
 	end
 
 	return new_action
-end
+end)
 
 Hooks:PostHook(PlayerStandard, "_start_action_reload", "RunningAnimationWithLockNLoad", function (self, t)
 	if self._equipped_unit:base():run_and_shoot_allowed() and self:_is_reloading() then
