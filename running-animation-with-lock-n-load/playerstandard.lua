@@ -127,6 +127,14 @@ Hooks:PostHook(PlayerStandard, "_end_action_running", "RunningAnimationWithLockN
 	end
 end)
 
+Hooks:PostHook(PlayerStandard, "_start_action_unequip_weapon", "RunningAnimationWithLockNLoad", function (self, t, data)
+	self._stop_running_anim_expire_t = nil
+	self._block_running_anim = nil
+	self._block_running_anim_expire_t = nil
+	self._anim_state = nil
+	self._anim_state_callback = nil
+end)
+
 Hooks:PreHook(PlayerStandard, "update", "RunningAnimationWithLockNLoad", function (self, t, dt)
 	if self._stop_running_anim_expire_t and self._stop_running_anim_expire_t <= t then
 		self._stop_running_anim_expire_t = nil
