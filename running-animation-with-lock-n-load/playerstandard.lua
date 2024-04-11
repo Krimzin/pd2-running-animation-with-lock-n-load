@@ -44,13 +44,17 @@ end
 local _check_action_primary_attack = Hooks:GetFunction(PlayerStandard, "_check_action_primary_attack")
 Hooks:OverrideFunction(PlayerStandard, "_check_action_primary_attack", function (self, t, input, params)
 	if self._equipped_unit:base():run_and_shoot_allowed() then
-		if input.btn_primary_attack_press and not self._anim_state then
+		if self:is_switching_stances() or self:_is_reloading() then
+			return false
+		end
+
+		if input.btn_primary_attack_press then
 			self._block_running_anim = true
 			self._block_running_anim_expire_t = nil
 			try_play_stop_running(self, t)
 		end
 
-		if input.btn_primary_attack_release and not self._anim_state then
+		if input.btn_primary_attack_release then
 			-- Unblock the running anim after 1 second.
 			self._block_running_anim_expire_t = t + 1
 		end
@@ -68,6 +72,10 @@ Hooks:OverrideFunction(PlayerStandard, "_check_action_deploy_underbarrel", funct
 	local run_and_shoot_allowed = self._equipped_unit:base():run_and_shoot_allowed()
 
 	if run_and_shoot_allowed then
+		if self._shooting or self:_is_reloading() then
+			return false
+		end
+
 		if input.btn_deploy_bipod and self._equipped_unit:base():underbarrel_name_id() then
 			self._block_running_anim = true
 			self._block_running_anim_expire_t = nil
