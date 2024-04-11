@@ -51,8 +51,8 @@ Hooks:OverrideFunction(PlayerStandard, "_check_action_primary_attack", function 
 		end
 
 		if input.btn_primary_attack_release and not self._anim_state then
-			-- Unblock the running anim after 3 seconds.
-			self._block_running_anim_expire_t = t + 3
+			-- Unblock the running anim after 1 second.
+			self._block_running_anim_expire_t = t + 1
 		end
 
 		if self._stop_running_anim_expire_t and self._stop_running_anim_expire_t > t then
@@ -91,7 +91,7 @@ Hooks:OverrideFunction(PlayerStandard, "_check_action_deploy_underbarrel", funct
 			-- Assume that the toggle underbarrel animation is playing,
 			self._anim_state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
 			self._anim_state_callback = function (self, t)
-				self._block_running_anim_expire_t = t + 3
+				self._block_running_anim_expire_t = t + 1
 			end
 		elseif input.btn_deploy_bipod or toggle_underbarrel_wanted then
 			-- Failed to toggle the underbarrel. Unblock the running animation.
@@ -110,7 +110,7 @@ Hooks:PostHook(PlayerStandard, "_start_action_reload", "RunningAnimationWithLock
 		-- Assume that the reload animation is playing.
 		self._anim_state = self._ext_camera:anim_state_machine():segment_state(self:get_animation("base"))
 		self._anim_state_callback = function (self, t)
-			self._block_running_anim_expire_t = t + 3
+			self._block_running_anim_expire_t = t + 1
 		end
 	end
 end)
